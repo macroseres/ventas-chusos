@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { requireSession } from "@/lib/auth";
 import { logout } from "@/app/login/actions";
 import { SubmitButton } from "@/app/components/SubmitButton";
+import { Brand } from "@/app/components/Brand";
 
 const navItems = [
   { href: "/", label: "Venta" },
@@ -19,9 +20,7 @@ export function AppHeader({ title, subtitle, userEmail }: { title: string; subti
     <header className="sticky top-0 z-20 -mx-4 mb-4 border-b border-slate-800 bg-slate-950 px-4 py-3 text-white shadow md:-mx-6 md:px-6 md:py-4">
       <div className="mx-auto flex max-w-6xl items-start justify-between gap-3">
         <div>
-          <div className="text-[11px] font-semibold uppercase tracking-wide text-amber-300">
-            Chusos
-          </div>
+          <Brand inverse />
           <h1 className="text-lg font-bold leading-tight md:text-3xl">{title}</h1>
           {subtitle && <p className="mt-1 text-xs text-slate-300 md:text-base">{subtitle}</p>}
         </div>

@@ -85,13 +85,13 @@ export default async function ProductosPage() {
               <input name="modelo" required placeholder="Ejemplo: Natacha escolar" className="min-h-12 rounded-xl border p-3 text-base" />
             </label>
 
-            <div className="grid grid-cols-2 gap-3">
-              <label className="grid gap-1">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="grid min-w-0 gap-1">
                 <span className="text-sm font-semibold">Talla</span>
-                <input name="talla" required placeholder="38" className="min-h-12 rounded-xl border p-3 text-base" />
+                <input name="talla" required placeholder="38" className="min-h-12 min-w-0 rounded-xl border p-3 text-base" />
               </label>
 
-              <label className="grid gap-1">
+              <label className="grid min-w-0 gap-1">
                 <span className="text-sm font-semibold">Color</span>
                 <select name="color" required defaultValue="" className="min-h-12 min-w-0 rounded-xl border p-3 text-base">
                   <option value="" disabled>Seleccionar</option>
@@ -100,15 +100,15 @@ export default async function ProductosPage() {
               </label>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <label className="grid gap-1">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="grid min-w-0 gap-1">
                 <span className="text-sm font-semibold">Stock inicial</span>
-                <input name="stock" type="number" min="0" defaultValue="0" className="min-h-12 rounded-xl border p-3 text-base" />
+                <input name="stock" type="number" min="0" defaultValue="0" className="min-h-12 min-w-0 rounded-xl border p-3 text-base" />
               </label>
 
-              <label className="grid gap-1">
+              <label className="grid min-w-0 gap-1">
                 <span className="text-sm font-semibold">Stock mínimo</span>
-                <input name="stock_minimo" type="number" min="0" defaultValue="2" className="min-h-12 rounded-xl border p-3 text-base" />
+                <input name="stock_minimo" type="number" min="0" defaultValue="2" className="min-h-12 min-w-0 rounded-xl border p-3 text-base" />
               </label>
             </div>
 
@@ -117,7 +117,8 @@ export default async function ProductosPage() {
         </Card>
 
         <Card>
-          <form action={crearColor} className="grid gap-3 sm:grid-cols-[1fr_auto_auto] sm:items-end">
+          <h2 className="text-lg font-bold">Colores disponibles</h2>
+          <form action={crearColor} className="mt-3 hidden gap-3 md:grid md:grid-cols-[1fr_auto_auto] md:items-end">
             <label className="grid gap-1">
               <span className="text-sm font-semibold">Nuevo color</span>
               <input name="nombre" required placeholder="Ejemplo: Vino" className="min-h-12 min-w-0 rounded-xl border p-3 text-base" />

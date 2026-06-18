@@ -41,8 +41,11 @@ export default async function Home({
   const sedeSeleccionada = Array.isArray(params?.sede) ? params.sede[0] : params?.sede || "Tienda Mercado";
   const supabase = await getSupabase();
   const { data: vendedorActual, error: vendedorError } = await supabase.rpc("vendedor_actual");
-  if (vendedorError) throw new Error(vendedorError.message);
-  if (!vendedorActual) throw new Error("Tu Gmail no está asociado a Papá, Mamá o Hermano.");
+  const vendedorPendiente = vendedorError
+    ? "No se pudo consultar el vendedor. Verifica la migración 003 en Supabase."
+    : !vendedorActual
+      ? "Este Gmail está autorizado, pero todavía no está asociado a Papá, Mamá o Hermano."
+      : null;
 
   const { data: sedes, error: sedesError } = await supabase
     .from("sedes")
@@ -74,6 +77,12 @@ export default async function Home({
     .gt("cantidad", 0);
   if (inventarioError) throw new Error(inventarioError.message);
   const inventario = inventarioData as unknown as InventarioConProducto[];
+
+  const sugerencias = Array.from(new Set(
+    inventario
+      .filter((item) => item.productos?.activo)
+      .map((item) => `${item.productos.modelo} ${item.productos.talla} ${item.productos.color}`),
+  )).sort((a, b) => a.localeCompare(b, "es"));
 
   const productosFiltrados =
     inventario.filter((item) => {
@@ -114,9 +123,15 @@ export default async function Home({
     >
       <div className="grid gap-4">
         <Card>
-          <div className="mb-3 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
-            Vendedor: <strong>{vendedorActual}</strong>
-          </div>
+          {vendedorActual ? (
+            <div className="mb-3 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
+              Vendedor: <strong>{vendedorActual}</strong>
+            </div>
+          ) : (
+            <div className="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">
+              {vendedorPendiente}
+            </div>
+          )}
           <form className="grid gap-3" action="/">
             <label className="grid gap-1">
               <span className="text-sm font-semibold">¿Dónde estás vendiendo?</span>
@@ -137,10 +152,17 @@ export default async function Home({
               <span className="text-sm font-semibold">Buscar zapato</span>
               <input
                 name="q"
+                list="sugerencias-productos"
                 defaultValue={q}
                 placeholder="Ejemplo: natacha 38 negro"
+                autoComplete="off"
                 className="min-h-12 rounded-xl border p-3 text-base"
               />
+              <datalist id="sugerencias-productos">
+                {sugerencias.map((sugerencia) => (
+                  <option key={sugerencia} value={sugerencia} />
+                ))}
+              </datalist>
             </label>
 
             <button className="min-h-12 rounded-xl bg-slate-950 px-4 py-3 font-bold text-white">
@@ -200,7 +222,12 @@ export default async function Home({
 
                   </div>
 
-                  <SubmitButton label="Vender" pendingLabel="Registrando..." className="mt-3 w-full rounded-xl bg-emerald-700 px-4 py-3 font-bold text-white" />
+                  <SubmitButton
+                    label={vendedorActual ? "Vender" : "Asocia este Gmail para vender"}
+                    pendingLabel="Registrando..."
+                    disabled={!vendedorActual}
+                    className="mt-3 w-full rounded-xl bg-emerald-700 px-4 py-3 font-bold text-white"
+                  />
                 </form>
               ))}
             </div>

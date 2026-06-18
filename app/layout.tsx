@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Chusos | Ventas e inventario",
-  description: "Control de ventas e inventario de Chusos",
+  title: "Zapatería López | Ventas e inventario",
+  description: "Control de ventas e inventario de Zapatería López",
 };
 
 export default function RootLayout({

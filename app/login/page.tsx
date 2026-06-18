@@ -1,5 +1,6 @@
 import { loginWithGoogle } from "./actions";
 import { SubmitButton } from "@/app/components/SubmitButton";
+import { Brand } from "@/app/components/Brand";
 
 export default async function LoginPage({
   searchParams,
@@ -19,7 +20,7 @@ export default async function LoginPage({
   return (
     <main className="grid min-h-screen place-items-center bg-slate-100 p-4 text-slate-950">
       <form action={loginWithGoogle} className="w-full max-w-sm rounded-lg bg-white p-6 shadow">
-        <div className="text-xs font-semibold uppercase text-amber-700">Chusos</div>
+        <Brand />
         <h1 className="mt-1 text-2xl font-bold">Iniciar sesión</h1>
         <div className="mt-6 grid gap-4">
           {message && <p className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{message}</p>}
