@@ -2,6 +2,7 @@ import { revalidatePath } from "next/cache";
 import { PageShell, Card } from "../components/Shell";
 import { getSupabase } from "@/lib/supabase";
 import type { Compra, ProductoBase } from "@/lib/types";
+import { SubmitButton } from "@/app/components/SubmitButton";
 
 async function registrarCompra(formData: FormData) {
   "use server";
@@ -80,9 +81,7 @@ export default async function ComprasPage() {
               <input name="observacion" placeholder="Ejemplo: compra recibida por hermano" className="min-h-12 rounded-xl border p-3 text-base" />
             </label>
 
-            <button className="min-h-12 rounded-xl bg-slate-950 px-4 py-3 font-bold text-white">
-              Guardar ingreso
-            </button>
+            <SubmitButton label="Guardar ingreso" pendingLabel="Guardando..." className="min-h-12 rounded-xl bg-slate-950 px-4 py-3 font-bold text-white" />
           </form>
         </Card>
 

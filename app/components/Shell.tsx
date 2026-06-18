@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { requireSession } from "@/lib/auth";
 import { logout } from "@/app/login/actions";
+import { SubmitButton } from "@/app/components/SubmitButton";
 
 const navItems = [
   { href: "/", label: "Venta" },
@@ -23,9 +24,9 @@ export function AppHeader({ title, subtitle, userEmail }: { title: string; subti
           {subtitle && <p className="mt-1 text-xs text-slate-300 md:text-base">{subtitle}</p>}
         </div>
         <form action={logout}>
-          <button title={`Cerrar sesión${userEmail ? ` de ${userEmail}` : ""}`} className="rounded-lg border border-slate-700 px-3 py-2 text-xs font-semibold hover:bg-slate-800">
-            Salir
-          </button>
+          <div title={`Cerrar sesión${userEmail ? ` de ${userEmail}` : ""}`}>
+            <SubmitButton label="Salir" pendingLabel="Saliendo..." className="rounded-lg border border-slate-700 px-3 py-2 text-xs font-semibold hover:bg-slate-800" />
+          </div>
         </form>
       </div>
     </header>

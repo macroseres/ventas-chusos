@@ -15,7 +15,12 @@ export async function GET(request: Request) {
   }
 
   const { data: isAllowed, error: accessError } = await supabase.rpc("es_usuario_autorizado");
-  if (accessError || !isAllowed) {
+  if (accessError) {
+    console.error("No se pudo verificar la lista de acceso:", accessError.message);
+    await supabase.auth.signOut();
+    return NextResponse.redirect(new URL("/login?error=configuration", requestUrl.origin));
+  }
+  if (!isAllowed) {
     await supabase.auth.signOut();
     return NextResponse.redirect(new URL("/login?error=unauthorized", requestUrl.origin));
   }

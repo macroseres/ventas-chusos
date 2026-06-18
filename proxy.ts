@@ -23,14 +23,19 @@ export async function proxy(request: NextRequest) {
   );
 
   const { data } = await supabase.auth.getUser();
-  const { data: isAllowed } = data.user
+  const { data: isAllowed, error: accessError } = data.user
     ? await supabase.rpc("es_usuario_autorizado")
-    : { data: false };
+    : { data: false, error: null };
   if (data.user && isAllowed) return response;
 
   if (data.user) await supabase.auth.signOut();
   const redirectUrl = new URL("/login", request.url);
-  if (data.user) redirectUrl.searchParams.set("error", "unauthorized");
+  if (accessError) {
+    console.error("No se pudo verificar la lista de acceso:", accessError.message);
+    redirectUrl.searchParams.set("error", "configuration");
+  } else if (data.user) {
+    redirectUrl.searchParams.set("error", "unauthorized");
+  }
   const redirectResponse = NextResponse.redirect(redirectUrl);
   response.cookies.getAll().forEach((cookie) => redirectResponse.cookies.set(cookie));
   return redirectResponse;

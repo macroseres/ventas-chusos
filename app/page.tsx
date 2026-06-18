@@ -3,6 +3,7 @@ import { PageShell, Card } from "./components/Shell";
 import { getSupabase } from "@/lib/supabase";
 import { getLimaDayBounds } from "@/lib/dates";
 import type { InventarioConProducto } from "@/lib/types";
+import { SubmitButton } from "@/app/components/SubmitButton";
 
 async function registrarVenta(formData: FormData) {
   "use server";
@@ -41,20 +42,23 @@ export default async function Home({
   const sedeSeleccionada = Array.isArray(params?.sede) ? params.sede[0] : params?.sede || "Tienda Mercado";
   const supabase = await getSupabase();
 
-  const { data: sedes } = await supabase
+  const { data: sedes, error: sedesError } = await supabase
     .from("sedes")
     .select("id, nombre")
     .in("nombre", ["Almacén Central", "Tienda Mercado"])
     .eq("activa", true)
     .order("nombre");
+  if (sedesError) throw new Error(sedesError.message);
 
   const sedeActual = sedes?.find((s) => s.nombre === sedeSeleccionada) || sedes?.[0];
+  if (!sedeActual) throw new Error("No hay una sede activa disponible para registrar ventas.");
 
-  const { data: vendedores } = await supabase
+  const { data: vendedores, error: vendedoresError } = await supabase
     .from("vendedores")
     .select("id, nombre")
     .eq("activo", true)
     .order("nombre");
+  if (vendedoresError) throw new Error(vendedoresError.message);
 
   const { data: inventarioData, error: inventarioError } = await supabase
     .from("inventario")
@@ -209,9 +213,7 @@ export default async function Home({
                     </label>
                   </div>
 
-                  <button className="mt-3 w-full rounded-xl bg-emerald-700 px-4 py-3 font-bold text-white">
-                    Vender
-                  </button>
+                  <SubmitButton label="Vender" pendingLabel="Registrando..." className="mt-3 w-full rounded-xl bg-emerald-700 px-4 py-3 font-bold text-white" />
                 </form>
               ))}
             </div>

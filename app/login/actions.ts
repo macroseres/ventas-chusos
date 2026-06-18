@@ -2,10 +2,10 @@
 
 import { redirect } from "next/navigation";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
+import { getAllowedRequestOrigin } from "@/lib/site-url";
 
 export async function loginWithGoogle() {
-  const origin = process.env.NEXT_PUBLIC_SITE_URL;
-  if (!origin) throw new Error("Falta configurar NEXT_PUBLIC_SITE_URL.");
+  const origin = await getAllowedRequestOrigin();
 
   const supabase = await createServerSupabaseClient();
   const { data, error } = await supabase.auth.signInWithOAuth({

@@ -42,21 +42,20 @@ grant execute on function public.es_usuario_autorizado() to authenticated;
 do $$
 declare
   v_table text;
-  v_policy record;
 begin
   foreach v_table in array array[
     'inventario', 'movimientos_stock', 'ventas', 'vendedores',
     'detalle_ventas', 'sedes', 'productos', 'compras'
   ] loop
     execute format('alter table public.%I enable row level security', v_table);
-    for v_policy in
-      select policyname from pg_policies
-      where schemaname = 'public' and tablename = v_table
-    loop
-      execute format('drop policy %I on public.%I', v_policy.policyname, v_table);
-    end loop;
+    execute format('drop policy if exists authorized_read on public.%I', v_table);
+    execute format('drop policy if exists authorized_read_guard on public.%I', v_table);
     execute format(
       'create policy authorized_read on public.%I for select to authenticated using (public.es_usuario_autorizado())',
+      v_table
+    );
+    execute format(
+      'create policy authorized_read_guard on public.%I as restrictive for select to authenticated using (public.es_usuario_autorizado())',
       v_table
     );
     execute format('revoke all on table public.%I from anon', v_table);

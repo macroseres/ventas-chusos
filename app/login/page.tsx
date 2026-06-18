@@ -1,4 +1,5 @@
 import { loginWithGoogle } from "./actions";
+import { SubmitButton } from "@/app/components/SubmitButton";
 
 export default async function LoginPage({
   searchParams,
@@ -9,6 +10,8 @@ export default async function LoginPage({
   const errorCode = Array.isArray(error) ? error[0] : error;
   const message = errorCode === "unauthorized"
     ? "Esta cuenta de Google no está autorizada."
+    : errorCode === "configuration"
+      ? "El acceso no está configurado correctamente. Revisa la migración y vuelve a intentar."
     : errorCode
       ? "No se pudo iniciar sesión con Google."
       : null;
@@ -20,10 +23,11 @@ export default async function LoginPage({
         <h1 className="mt-1 text-2xl font-bold">Iniciar sesión</h1>
         <div className="mt-6 grid gap-4">
           {message && <p className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{message}</p>}
-          <button className="flex min-h-12 items-center justify-center gap-3 rounded-lg border border-slate-300 bg-white px-4 font-bold text-slate-900 hover:bg-slate-50">
-            <span aria-hidden="true" className="text-lg font-bold text-blue-600">G</span>
-            Continuar con Google
-          </button>
+          <SubmitButton
+            label="Continuar con Google"
+            pendingLabel="Abriendo Google..."
+            className="min-h-12 rounded-lg border border-slate-300 bg-white px-4 font-bold text-slate-900 hover:bg-slate-50"
+          />
         </div>
       </form>
     </main>

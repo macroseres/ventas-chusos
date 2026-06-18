@@ -2,10 +2,10 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 ## Configuración de Supabase
 
-1. Ejecuta `supabase/migrations/202606180001_atomic_inventory_operations.sql` en el SQL Editor de Supabase.
+1. Ejecuta, en orden, las migraciones `202606180001_atomic_inventory_operations.sql` y `202606180002_google_access_hardening.sql` en el SQL Editor de Supabase.
 2. Activa Google en Authentication > Providers y configura las credenciales OAuth de Google.
 3. En Google Cloud usa `https://TU_PROYECTO.supabase.co/auth/v1/callback` como URI autorizada del cliente OAuth.
-4. En Supabase añade `http://localhost:3000/auth/callback` y la URL equivalente de producción a las URL de redirección permitidas.
+4. En Supabase añade `http://localhost:3000/auth/callback`, la URL LAN usada por el celular y la URL equivalente de producción a las URL de redirección permitidas.
 5. Define `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` y `NEXT_PUBLIC_SITE_URL` en `.env.local`.
 6. Registra cada Gmail permitido en la tabla protegida `usuarios_autorizados` desde el SQL Editor:
 
@@ -14,6 +14,10 @@ insert into public.usuarios_autorizados (email)
 values ('persona@gmail.com')
 on conflict (email) do update set activo = true;
 ```
+
+7. En Authentication > Hooks activa **Before User Created** y selecciona `public.hook_restringir_registro_google`. Esto evita que correos no autorizados lleguen a crear una cuenta de Auth.
+
+Para probar desde un celular en la misma red, abre la IP LAN del computador, por ejemplo `http://192.168.1.20:3000`, y registra `http://192.168.1.20:3000/auth/callback` en Supabase. En producción, `NEXT_PUBLIC_SITE_URL` debe ser la URL HTTPS pública; `ALLOWED_SITE_ORIGINS` puede contener orígenes adicionales separados por comas.
 
 La migración protege lecturas y operaciones de venta, compra, traslado y creación de productos para los correos autorizados, y ejecuta las mutaciones dentro de transacciones de PostgreSQL.
 
