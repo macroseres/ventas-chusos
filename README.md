@@ -3,6 +3,8 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 ## Configuración de Supabase
 
 1. Ejecuta en orden las migraciones `202606180001_atomic_inventory_operations.sql`, `202606180002_google_access_hardening.sql` y `202606180003_sellers_and_colors.sql` en el SQL Editor de Supabase.
+
+Si la venta muestra que `registrar_venta_impl` no existe, ejecuta también `202606180005_standalone_sale_function.sql`. Esta versión reemplaza la función de venta por una implementación independiente.
 2. Activa Google en Authentication > Providers y configura las credenciales OAuth de Google.
 3. En Google Cloud usa `https://TU_PROYECTO.supabase.co/auth/v1/callback` como URI autorizada del cliente OAuth.
 4. En Supabase añade `http://localhost:3000/auth/callback`, la URL LAN usada por el celular y la URL equivalente de producción a las URL de redirección permitidas.
