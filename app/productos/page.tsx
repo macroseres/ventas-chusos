@@ -1,23 +1,30 @@
 import { revalidatePath } from "next/cache";
-import { supabase } from "@/lib/supabase";
-import { Card, PageShell } from "@/app/components/Shell";
+import { PageShell, Card } from "../components/Shell";
+import { getSupabase } from "@/lib/supabase";
+import type { ProductoConInventario } from "@/lib/types";
 
 async function crearProducto(formData: FormData) {
   "use server";
+
   const modelo = String(formData.get("modelo") || "").trim();
   const talla = String(formData.get("talla") || "").trim();
   const color = String(formData.get("color") || "").trim() || "Sin color";
   const stock = Number(formData.get("stock") || 0);
-  if (!modelo || !talla) throw new Error("Modelo y talla son obligatorios.");
+  const stock_minimo = Number(formData.get("stock_minimo") || 0);
 
-  const { data: producto, error } = await supabase.from("productos").insert({ modelo, talla, color, activo: true }).select().single();
+  if (!modelo || !talla || !Number.isInteger(stock) || !Number.isInteger(stock_minimo) || stock < 0 || stock_minimo < 0) {
+    throw new Error("Revisa modelo, talla y cantidades.");
+  }
+
+  const supabase = await getSupabase();
+  const { error } = await supabase.rpc("crear_producto_con_stock", {
+    p_modelo: modelo,
+    p_talla: talla,
+    p_color: color,
+    p_stock: stock,
+    p_stock_minimo: stock_minimo,
+  });
   if (error) throw new Error(error.message);
-
-  const { data: almacen } = await supabase.from("sedes").select("id").eq("nombre", "Almacén Central").single();
-  if (!almacen) throw new Error("No se encontró Almacén Central.");
-
-  const { error: invError } = await supabase.from("inventario").insert({ sede_id: almacen.id, producto_id: producto.id, cantidad: stock, stock_minimo: 0 });
-  if (invError) throw new Error(invError.message);
 
   revalidatePath("/productos");
   revalidatePath("/");
@@ -25,33 +32,84 @@ async function crearProducto(formData: FormData) {
 }
 
 export default async function ProductosPage() {
-  const { data: productos } = await supabase
+  const supabase = await getSupabase();
+  const { data, error } = await supabase
     .from("productos")
-    .select(`id, modelo, talla, color, activo, created_at, inventario (cantidad, sedes (nombre))`)
-    .order("created_at", { ascending: false });
+    .select(`
+      id,
+      modelo,
+      talla,
+      color,
+      activo,
+      inventario (
+        cantidad,
+        stock_minimo,
+        sedes ( nombre )
+      )
+    `)
+    .order("modelo");
+  const productos = (data || []) as unknown as ProductoConInventario[];
 
   return (
-    <PageShell title="Productos" subtitle="Carga rápida de modelo, talla, color y stock inicial en casa/almacén.">
-      <div className="grid gap-4 lg:grid-cols-[0.8fr_1.2fr]">
+    <PageShell title="Productos" subtitle="Registra modelo, talla, color y stock inicial.">
+      <div className="grid gap-4">
         <Card>
-          <h2 className="mb-3 text-lg font-bold">Nuevo producto</h2>
-          <form action={crearProducto} className="grid gap-3">
-            <input name="modelo" required placeholder="Modelo: Natacha escolar" className="min-h-12 rounded-xl border p-3 text-base" />
+          <form action={crearProducto} className="grid gap-4">
+            <h2 className="text-lg font-bold">Nuevo producto</h2>
+
+            <label className="grid gap-1">
+              <span className="text-sm font-semibold">Modelo</span>
+              <input name="modelo" required placeholder="Ejemplo: Natacha escolar" className="min-h-12 rounded-xl border p-3 text-base" />
+            </label>
+
             <div className="grid grid-cols-2 gap-3">
-              <input name="talla" required placeholder="Talla" className="min-h-12 rounded-xl border p-3 text-base" />
-              <input name="color" defaultValue="Sin color" placeholder="Color" className="min-h-12 rounded-xl border p-3 text-base" />
+              <label className="grid gap-1">
+                <span className="text-sm font-semibold">Talla</span>
+                <input name="talla" required placeholder="38" className="min-h-12 rounded-xl border p-3 text-base" />
+              </label>
+
+              <label className="grid gap-1">
+                <span className="text-sm font-semibold">Color</span>
+                <input name="color" defaultValue="Sin color" placeholder="Negro" className="min-h-12 rounded-xl border p-3 text-base" />
+              </label>
             </div>
-            <input name="stock" type="number" min="0" defaultValue="0" placeholder="Stock inicial" className="min-h-12 rounded-xl border p-3 text-base" />
-            <button className="min-h-12 rounded-xl bg-slate-950 font-bold text-white">Guardar</button>
+
+            <div className="grid grid-cols-2 gap-3">
+              <label className="grid gap-1">
+                <span className="text-sm font-semibold">Stock inicial</span>
+                <input name="stock" type="number" min="0" defaultValue="0" className="min-h-12 rounded-xl border p-3 text-base" />
+              </label>
+
+              <label className="grid gap-1">
+                <span className="text-sm font-semibold">Stock mínimo</span>
+                <input name="stock_minimo" type="number" min="0" defaultValue="2" className="min-h-12 rounded-xl border p-3 text-base" />
+              </label>
+            </div>
+
+            <button className="min-h-12 rounded-xl bg-slate-950 px-4 py-3 font-bold text-white">
+              Guardar producto
+            </button>
           </form>
         </Card>
 
+        {error && <Card className="bg-red-50 text-red-700">{error.message}</Card>}
+
         <div className="grid gap-3">
-          {(productos || []).map((p: any) => {
-            const total = p.inventario?.reduce((a: number, i: any) => a + Number(i.cantidad || 0), 0) || 0;
-            return <Card key={p.id}><div className="flex justify-between gap-3"><div><div className="font-bold">{p.modelo}</div><div className="text-sm text-slate-600">Talla {p.talla} · {p.color}</div></div><div className="rounded-xl bg-slate-950 px-3 py-2 text-center text-white"><div className="text-xs">Stock</div><div className="text-xl font-bold">{total}</div></div></div></Card>
+          {productos.map((producto) => {
+            const total = producto.inventario?.reduce((sum, item) => sum + Number(item.cantidad || 0), 0) || 0;
+
+            return (
+              <Card key={producto.id}>
+                <div className="font-bold">{producto.modelo}</div>
+                <div className="text-sm text-slate-600">
+                  Talla {producto.talla} · {producto.color}
+                </div>
+                <div className="mt-2 text-sm">
+                  Stock total: <strong>{total}</strong>
+                </div>
+              </Card>
+            );
           })}
-          {(!productos || productos.length === 0) && <Card><div className="text-slate-500">No hay productos registrados.</div></Card>}
         </div>
       </div>
     </PageShell>

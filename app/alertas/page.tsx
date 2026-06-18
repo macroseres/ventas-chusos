@@ -1,8 +1,56 @@
-import { supabase } from "@/lib/supabase";
-import { Card, PageShell } from "@/app/components/Shell";
+import { PageShell, Card } from "../components/Shell";
+import { getSupabase } from "@/lib/supabase";
+import type { InventarioConProducto } from "@/lib/types";
 
-export default async function AlertasPage(){
- const {data:inv}=await supabase.from("inventario").select(`cantidad, sedes(nombre), productos(id,modelo,talla,color,activo)`).order("cantidad");
- const alertas=(inv||[]).filter((i:any)=>i.sedes?.nombre==="Tienda Mercado" && i.productos?.activo && Number(i.cantidad||0)<=2);
- return <PageShell title="Alertas" subtitle="Productos con 2 pares o menos en Tienda Mercado."><div className="grid gap-3">{alertas.length?alertas.map((i:any)=><Card key={i.productos?.id} className={Number(i.cantidad)===0?"border-2 border-red-500 bg-red-50":""}><div className="flex justify-between gap-3"><div><div className="font-bold">{i.productos?.modelo}</div><div className="text-sm text-slate-600">Talla {i.productos?.talla} · {i.productos?.color}</div></div><div className="rounded-xl bg-slate-950 px-4 py-2 text-center text-white"><div className="text-xs">Stock</div><div className="text-2xl font-bold">{i.cantidad}</div></div></div></Card>):<Card><div className="text-slate-500">No hay alertas.</div></Card>}</div></PageShell>
+export default async function AlertasPage() {
+  const supabase = await getSupabase();
+  const { data, error } = await supabase
+    .from("inventario")
+    .select(`
+      cantidad,
+      stock_minimo,
+      sedes ( nombre ),
+      productos ( id, modelo, talla, color, activo )
+    `)
+    .order("cantidad");
+  const inventario = (data || []) as unknown as InventarioConProducto[];
+
+  const alertas =
+    inventario.filter((item) => (
+      item.sedes?.nombre === "Tienda Mercado" &&
+      item.productos?.activo &&
+      Number(item.cantidad || 0) <= Number(item.stock_minimo || 0)
+    ));
+
+  return (
+    <PageShell title="Alertas" subtitle="Productos cuyo stock está en o debajo del mínimo definido.">
+      {error && <Card className="bg-red-50 text-red-700">{error.message}</Card>}
+
+      <div className="mb-4 grid grid-cols-2 gap-3">
+        <Card>
+          <div className="text-sm text-slate-500">Alertas</div>
+          <div className="text-3xl font-bold">{alertas.length}</div>
+        </Card>
+        <Card>
+          <div className="text-sm text-slate-500">Agotados</div>
+          <div className="text-3xl font-bold">
+            {alertas.filter((alerta) => Number(alerta.cantidad || 0) === 0).length}
+          </div>
+        </Card>
+      </div>
+
+      <div className="grid gap-3">
+        {alertas.length > 0 ? alertas.map((item) => (
+          <Card key={`${item.productos?.id}-${item.sedes?.nombre}`} className={Number(item.cantidad || 0) === 0 ? "bg-red-50" : "bg-yellow-50"}>
+            <div className="font-bold">{item.productos?.modelo}</div>
+            <div className="text-sm text-slate-600">Talla {item.productos?.talla} · {item.productos?.color}</div>
+            <div className="mt-2 text-sm">Stock actual: <strong>{item.cantidad}</strong></div>
+            <div className="text-sm">Stock mínimo: <strong>{item.stock_minimo}</strong></div>
+          </Card>
+        )) : (
+          <Card className="text-slate-500">No hay alertas de stock.</Card>
+        )}
+      </div>
+    </PageShell>
+  );
 }

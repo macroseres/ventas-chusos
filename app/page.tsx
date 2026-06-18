@@ -1,205 +1,226 @@
 import { revalidatePath } from "next/cache";
-import { supabase } from "@/lib/supabase";
-import { Card, PageShell } from "@/app/components/Shell";
+import { PageShell, Card } from "./components/Shell";
+import { getSupabase } from "@/lib/supabase";
+import { getLimaDayBounds } from "@/lib/dates";
+import type { InventarioConProducto } from "@/lib/types";
 
-const SEDES = ["Tienda Mercado", "Almacén Central"];
-
-function normalizar(valor: string) {
-  return valor.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-}
-
-function stockEnSede(producto: any, sede: string) {
-  const item = producto.inventario?.find((registro: any) => registro.sedes?.nombre === sede);
-  return Number(item?.cantidad || 0);
-}
-
-async function registrarVentaRapida(formData: FormData) {
+async function registrarVenta(formData: FormData) {
   "use server";
 
-  const sede_nombre = String(formData.get("sede_nombre") || "Tienda Mercado");
   const producto_id = String(formData.get("producto_id") || "");
+  const sede_id = String(formData.get("sede_id") || "");
+  const vendedor_id = String(formData.get("vendedor_id") || "");
   const cantidad = Number(formData.get("cantidad") || 0);
-  const precio_unitario = Number(formData.get("precio_unitario") || 0);
-  const metodo_pago = String(formData.get("metodo_pago") || "efectivo");
-  const vendedor = String(formData.get("vendedor") || "");
 
-  if (!producto_id || cantidad <= 0) throw new Error("Selecciona producto y cantidad válida.");
+  if (!producto_id || !sede_id || !Number.isInteger(cantidad) || cantidad <= 0) {
+    throw new Error("Selecciona producto, sede y cantidad.");
+  }
 
-  const { data: sede } = await supabase.from("sedes").select("id").eq("nombre", sede_nombre).single();
-  if (!sede) throw new Error("No se encontró la sede seleccionada.");
-
-  const { data: stock } = await supabase
-    .from("inventario")
-    .select("id, cantidad")
-    .eq("sede_id", sede.id)
-    .eq("producto_id", producto_id)
-    .single();
-
-  if (!stock) throw new Error(`No hay inventario en ${sede_nombre} para este producto.`);
-  if (Number(stock.cantidad) < cantidad) throw new Error(`Stock insuficiente en ${sede_nombre}.`);
-
-  const total = cantidad * precio_unitario;
-
-  const { data: venta, error: ventaError } = await supabase
-    .from("ventas")
-    .insert({ sede_id: sede.id, total, metodo_pago, vendedor })
-    .select()
-    .single();
-
-  if (ventaError) throw new Error(ventaError.message);
-
-  const { error: detalleError } = await supabase
-    .from("detalle_ventas")
-    .insert({ venta_id: venta.id, producto_id, cantidad, precio_unitario });
-
-  if (detalleError) throw new Error(detalleError.message);
-
-  const { error: invError } = await supabase
-    .from("inventario")
-    .update({ cantidad: Number(stock.cantidad) - cantidad })
-    .eq("id", stock.id);
-
-  if (invError) throw new Error(invError.message);
+  const supabase = await getSupabase();
+  const { error } = await supabase.rpc("registrar_venta", {
+    p_producto_id: producto_id,
+    p_sede_id: sede_id,
+    p_vendedor_id: vendedor_id || null,
+    p_cantidad: cantidad,
+  });
+  if (error) throw new Error(error.message);
 
   revalidatePath("/");
-  revalidatePath("/ventas");
   revalidatePath("/inventario");
-  revalidatePath("/reportes");
   revalidatePath("/alertas");
+  revalidatePath("/reportes");
 }
 
-export default async function Home(props: any) {
-  const searchParams = await props.searchParams;
-  const sede = SEDES.includes(searchParams?.sede) ? searchParams.sede : "Tienda Mercado";
-  const q = String(searchParams?.q || "").trim();
+export default async function Home({
+  searchParams,
+}: {
+  searchParams?: Promise<{ q?: string | string[]; sede?: string | string[] }>;
+}) {
+  const params = await searchParams;
+  const q = (Array.isArray(params?.q) ? params.q[0] : params?.q || "").trim();
+  const sedeSeleccionada = Array.isArray(params?.sede) ? params.sede[0] : params?.sede || "Tienda Mercado";
+  const supabase = await getSupabase();
 
-  const { data: productos } = await supabase
-    .from("productos")
-    .select(`id, modelo, talla, color, activo, inventario (id, cantidad, sedes (nombre))`)
+  const { data: sedes } = await supabase
+    .from("sedes")
+    .select("id, nombre")
+    .in("nombre", ["Almacén Central", "Tienda Mercado"])
+    .eq("activa", true)
+    .order("nombre");
+
+  const sedeActual = sedes?.find((s) => s.nombre === sedeSeleccionada) || sedes?.[0];
+
+  const { data: vendedores } = await supabase
+    .from("vendedores")
+    .select("id, nombre")
     .eq("activo", true)
-    .order("modelo");
+    .order("nombre");
 
-  const { data: ventasHoy } = await supabase
+  const { data: inventarioData, error: inventarioError } = await supabase
+    .from("inventario")
+    .select(`
+      id,
+      cantidad,
+      stock_minimo,
+      sedes ( id, nombre ),
+      productos (
+        id,
+        modelo,
+        talla,
+        color,
+        activo
+      )
+    `)
+    .eq("sede_id", sedeActual?.id || "")
+    .gt("cantidad", 0);
+  if (inventarioError) throw new Error(inventarioError.message);
+  const inventario = inventarioData as unknown as InventarioConProducto[];
+
+  const productosFiltrados =
+    inventario.filter((item) => {
+      if (!item.productos?.activo) return false;
+      if (!q) return true;
+
+      const texto = `${item.productos.modelo} ${item.productos.talla} ${item.productos.color}`.toLowerCase();
+      return texto.includes(q.toLowerCase());
+    });
+
+  const { start, end } = getLimaDayBounds();
+  const { data: ventasHoy, error: ventasError } = await supabase
     .from("ventas")
-    .select("id, total, vendedor, created_at")
-    .gte("created_at", new Date(new Date().setHours(0,0,0,0)).toISOString());
+    .select("id, vendedor, created_at")
+    .gte("created_at", start)
+    .lt("created_at", end);
+  if (ventasError) throw new Error(ventasError.message);
 
-  const lista = productos || [];
-  const filtrados = q
-    ? lista.filter((p: any) => normalizar(`${p.modelo} ${p.talla} ${p.color}`).includes(normalizar(q)))
-    : lista.slice(0, 20);
-
-  const disponibles = filtrados.filter((p: any) => stockEnSede(p, sede) > 0);
-  const totalVendido = ventasHoy?.reduce((acc: number, v: any) => acc + Number(v.total || 0), 0) || 0;
+  const { data: alertasData, error: alertasError } = await supabase
+    .from("inventario")
+    .select("cantidad, stock_minimo, sedes ( nombre ), productos ( activo )");
+  if (alertasError) throw new Error(alertasError.message);
+  const stockBajo = (alertasData as unknown as Array<{
+    cantidad: number;
+    stock_minimo: number;
+    sedes: { nombre: string } | null;
+    productos: { activo: boolean } | null;
+  }>).filter((item) =>
+    item.sedes?.nombre === "Tienda Mercado" &&
+    item.productos?.activo &&
+    Number(item.cantidad) <= Number(item.stock_minimo)
+  );
 
   return (
-    <PageShell title="Venta rápida" subtitle="Busca el zapato, verifica dónde está y registra la venta desde el celular.">
-      <div className="grid gap-4 lg:grid-cols-[1fr_0.9fr]">
-        <div className="space-y-4">
+    <PageShell
+      title="Venta rápida"
+      subtitle="Busca primero dónde está el zapato. Luego registra la venta sin precio."
+    >
+      <div className="grid gap-4">
+        <Card>
+          <form className="grid gap-3" action="/">
+            <label className="grid gap-1">
+              <span className="text-sm font-semibold">¿Dónde estás vendiendo?</span>
+              <select
+                name="sede"
+                defaultValue={sedeSeleccionada}
+                className="min-h-12 rounded-xl border p-3 text-base"
+              >
+                {sedes?.map((sede) => (
+                  <option key={sede.id} value={sede.nombre}>
+                    {sede.nombre === "Almacén Central" ? "Casa / Almacén Central" : sede.nombre}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="grid gap-1">
+              <span className="text-sm font-semibold">Buscar zapato</span>
+              <input
+                name="q"
+                defaultValue={q}
+                placeholder="Ejemplo: natacha 38 negro"
+                className="min-h-12 rounded-xl border p-3 text-base"
+              />
+            </label>
+
+            <button className="min-h-12 rounded-xl bg-slate-950 px-4 py-3 font-bold text-white">
+              Buscar
+            </button>
+          </form>
+        </Card>
+
+        <div className="grid grid-cols-3 gap-3">
           <Card>
-            <form className="grid gap-3" action="/" method="get">
-              <label className="flex flex-col gap-1">
-                <span className="text-sm font-semibold">Estoy vendiendo en</span>
-                <select name="sede" defaultValue={sede} className="min-h-12 rounded-xl border p-3 text-base">
-                  <option value="Tienda Mercado">Tienda Mercado</option>
-                  <option value="Almacén Central">Casa / Almacén Central</option>
-                </select>
-              </label>
-
-              <label className="flex flex-col gap-1">
-                <span className="text-sm font-semibold">Buscar antes de vender</span>
-                <input name="q" defaultValue={q} placeholder="Modelo, talla o color" className="min-h-12 rounded-xl border p-3 text-base" />
-              </label>
-
-              <button className="min-h-12 rounded-xl bg-slate-950 px-4 py-3 font-bold text-white">Buscar stock</button>
-            </form>
+            <div className="text-xs text-slate-500">Ventas hoy</div>
+            <div className="text-2xl font-bold">{ventasHoy?.length || 0}</div>
           </Card>
-
           <Card>
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-lg font-bold">Resultado de búsqueda</h2>
-              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold">{sede}</span>
-            </div>
+            <div className="text-xs text-slate-500">Resultados</div>
+            <div className="text-2xl font-bold">{productosFiltrados.length}</div>
+          </Card>
+          <Card className={stockBajo.length ? "bg-red-50" : ""}>
+            <div className="text-xs text-slate-500">Alertas</div>
+            <div className="text-2xl font-bold">{stockBajo.length}</div>
+          </Card>
+        </div>
 
-            <div className="grid gap-2">
-              {filtrados.length > 0 ? filtrados.slice(0, 8).map((p: any) => {
-                const stockMercado = stockEnSede(p, "Tienda Mercado");
-                const stockAlmacen = stockEnSede(p, "Almacén Central");
-                return (
-                  <div key={p.id} className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                    <div className="font-semibold">{p.modelo}</div>
-                    <div className="text-sm text-slate-600">Talla {p.talla} · {p.color}</div>
-                    <div className="mt-2 grid grid-cols-2 gap-2 text-center text-sm">
-                      <div className="rounded-lg bg-white p-2">Mercado: <strong>{stockMercado}</strong></div>
-                      <div className="rounded-lg bg-white p-2">Casa: <strong>{stockAlmacen}</strong></div>
-                    </div>
+        <Card>
+          <h2 className="mb-3 text-lg font-bold">
+            Stock disponible en {sedeActual?.nombre === "Almacén Central" ? "Casa / Almacén" : sedeActual?.nombre}
+          </h2>
+
+          {productosFiltrados.length > 0 ? (
+            <div className="grid gap-3">
+              {productosFiltrados.map((item) => (
+                <form key={item.id} action={registrarVenta} className="rounded-xl border bg-slate-50 p-3">
+                  <input type="hidden" name="producto_id" value={item.productos.id} />
+                  <input type="hidden" name="sede_id" value={sedeActual?.id} />
+
+                  <div className="font-bold">{item.productos.modelo}</div>
+                  <div className="text-sm text-slate-600">
+                    Talla {item.productos.talla} · {item.productos.color}
                   </div>
-                );
-              }) : <div className="text-sm text-slate-500">No se encontraron productos.</div>}
+
+                  <div className="mt-2 rounded-lg bg-white p-2 text-sm">
+                    Stock aquí: <strong>{item.cantidad}</strong>
+                  </div>
+
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    <label className="grid gap-1">
+                      <span className="text-xs font-semibold">Cantidad</span>
+                      <input
+                        name="cantidad"
+                        type="number"
+                        min="1"
+                        max={item.cantidad}
+                        defaultValue="1"
+                        className="min-h-11 rounded-lg border p-2 text-base"
+                      />
+                    </label>
+
+                    <label className="grid gap-1">
+                      <span className="text-xs font-semibold">Vendedor</span>
+                      <select name="vendedor_id" className="min-h-11 rounded-lg border p-2 text-base">
+                        <option value="">-</option>
+                        {vendedores?.map((vendedor) => (
+                          <option key={vendedor.id} value={vendedor.id}>
+                            {vendedor.nombre}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+
+                  <button className="mt-3 w-full rounded-xl bg-emerald-700 px-4 py-3 font-bold text-white">
+                    Vender
+                  </button>
+                </form>
+              ))}
             </div>
-          </Card>
-        </div>
-
-        <div className="space-y-4">
-          <Card className="border-2 border-slate-950">
-            <h2 className="mb-3 text-lg font-bold">Registrar venta</h2>
-            <form action={registrarVentaRapida} className="grid gap-3">
-              <input type="hidden" name="sede_nombre" value={sede} />
-
-              <label className="flex flex-col gap-1">
-                <span className="text-sm font-semibold">Producto con stock en {sede}</span>
-                <select name="producto_id" required className="min-h-12 rounded-xl border p-3 text-base">
-                  <option value="">Seleccionar producto</option>
-                  {disponibles.map((p: any) => (
-                    <option key={p.id} value={p.id}>{p.modelo} · Talla {p.talla} · {p.color} · Stock: {stockEnSede(p, sede)}</option>
-                  ))}
-                </select>
-              </label>
-
-              <div className="grid grid-cols-2 gap-3">
-                <label className="flex flex-col gap-1">
-                  <span className="text-sm font-semibold">Cantidad</span>
-                  <input name="cantidad" type="number" min="1" defaultValue="1" required className="min-h-12 rounded-xl border p-3 text-base" />
-                </label>
-
-                <label className="flex flex-col gap-1">
-                  <span className="text-sm font-semibold">Precio</span>
-                  <input name="precio_unitario" type="number" min="0" step="0.01" required placeholder="S/" className="min-h-12 rounded-xl border p-3 text-base" />
-                </label>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <label className="flex flex-col gap-1">
-                  <span className="text-sm font-semibold">Pago</span>
-                  <select name="metodo_pago" className="min-h-12 rounded-xl border p-3 text-base">
-                    <option value="efectivo">Efectivo</option>
-                    <option value="yape">Yape</option>
-                    <option value="plin">Plin</option>
-                    <option value="transferencia">Transferencia</option>
-                    <option value="otro">Otro</option>
-                  </select>
-                </label>
-
-                <label className="flex flex-col gap-1">
-                  <span className="text-sm font-semibold">Vendedor</span>
-                  <select name="vendedor" className="min-h-12 rounded-xl border p-3 text-base">
-                    <option value="">-</option>
-                    <option value="Papá">Papá</option>
-                    <option value="Mamá">Mamá</option>
-                    <option value="Hermano">Hermano</option>
-                  </select>
-                </label>
-              </div>
-
-              <button className="mt-1 min-h-14 rounded-xl bg-amber-400 px-4 py-3 text-lg font-extrabold text-slate-950 shadow hover:bg-amber-300">Vender ahora</button>
-            </form>
-          </Card>
-
-          <div className="grid grid-cols-2 gap-3">
-            <Card><div className="text-xs text-slate-500">Ventas hoy</div><div className="text-2xl font-bold">{ventasHoy?.length || 0}</div></Card>
-            <Card><div className="text-xs text-slate-500">Total hoy</div><div className="text-2xl font-bold">S/ {totalVendido.toFixed(2)}</div></Card>
-          </div>
-        </div>
+          ) : (
+            <div className="rounded-xl bg-slate-50 p-4 text-sm text-slate-600">
+              No hay resultados con stock en esta sede. Cambia la sede o busca otro modelo/talla/color.
+            </div>
+          )}
+        </Card>
       </div>
     </PageShell>
   );
