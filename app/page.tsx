@@ -10,7 +10,6 @@ async function registrarVenta(formData: FormData) {
 
   const producto_id = String(formData.get("producto_id") || "");
   const sede_id = String(formData.get("sede_id") || "");
-  const vendedor_id = String(formData.get("vendedor_id") || "");
   const cantidad = Number(formData.get("cantidad") || 0);
 
   if (!producto_id || !sede_id || !Number.isInteger(cantidad) || cantidad <= 0) {
@@ -21,7 +20,7 @@ async function registrarVenta(formData: FormData) {
   const { error } = await supabase.rpc("registrar_venta", {
     p_producto_id: producto_id,
     p_sede_id: sede_id,
-    p_vendedor_id: vendedor_id || null,
+    p_vendedor_id: null,
     p_cantidad: cantidad,
   });
   if (error) throw new Error(error.message);
@@ -41,6 +40,9 @@ export default async function Home({
   const q = (Array.isArray(params?.q) ? params.q[0] : params?.q || "").trim();
   const sedeSeleccionada = Array.isArray(params?.sede) ? params.sede[0] : params?.sede || "Tienda Mercado";
   const supabase = await getSupabase();
+  const { data: vendedorActual, error: vendedorError } = await supabase.rpc("vendedor_actual");
+  if (vendedorError) throw new Error(vendedorError.message);
+  if (!vendedorActual) throw new Error("Tu Gmail no está asociado a Papá, Mamá o Hermano.");
 
   const { data: sedes, error: sedesError } = await supabase
     .from("sedes")
@@ -52,13 +54,6 @@ export default async function Home({
 
   const sedeActual = sedes?.find((s) => s.nombre === sedeSeleccionada) || sedes?.[0];
   if (!sedeActual) throw new Error("No hay una sede activa disponible para registrar ventas.");
-
-  const { data: vendedores, error: vendedoresError } = await supabase
-    .from("vendedores")
-    .select("id, nombre")
-    .eq("activo", true)
-    .order("nombre");
-  if (vendedoresError) throw new Error(vendedoresError.message);
 
   const { data: inventarioData, error: inventarioError } = await supabase
     .from("inventario")
@@ -119,6 +114,9 @@ export default async function Home({
     >
       <div className="grid gap-4">
         <Card>
+          <div className="mb-3 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
+            Vendedor: <strong>{vendedorActual}</strong>
+          </div>
           <form className="grid gap-3" action="/">
             <label className="grid gap-1">
               <span className="text-sm font-semibold">¿Dónde estás vendiendo?</span>
@@ -187,7 +185,7 @@ export default async function Home({
                     Stock aquí: <strong>{item.cantidad}</strong>
                   </div>
 
-                  <div className="mt-3 grid grid-cols-2 gap-2">
+                  <div className="mt-3">
                     <label className="grid gap-1">
                       <span className="text-xs font-semibold">Cantidad</span>
                       <input
@@ -200,17 +198,6 @@ export default async function Home({
                       />
                     </label>
 
-                    <label className="grid gap-1">
-                      <span className="text-xs font-semibold">Vendedor</span>
-                      <select name="vendedor_id" className="min-h-11 rounded-lg border p-2 text-base">
-                        <option value="">-</option>
-                        {vendedores?.map((vendedor) => (
-                          <option key={vendedor.id} value={vendedor.id}>
-                            {vendedor.nombre}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
                   </div>
 
                   <SubmitButton label="Vender" pendingLabel="Registrando..." className="mt-3 w-full rounded-xl bg-emerald-700 px-4 py-3 font-bold text-white" />

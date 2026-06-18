@@ -10,6 +10,8 @@ const navItems = [
   { href: "/movimientos", label: "Mover" },
   { href: "/compras", label: "Compra" },
   { href: "/alertas", label: "Alertas" },
+  { href: "/productos", label: "Productos" },
+  { href: "/reportes", label: "Reportes" },
 ];
 
 export function AppHeader({ title, subtitle, userEmail }: { title: string; subtitle?: string; userEmail?: string }) {
@@ -36,7 +38,7 @@ export function AppHeader({ title, subtitle, userEmail }: { title: string; subti
 export function BottomNav() {
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-30 border-t border-slate-200 bg-white/95 px-2 py-2 shadow-[0_-4px_18px_rgba(15,23,42,0.12)] backdrop-blur md:hidden">
-      <div className="grid grid-cols-5 gap-1 text-center text-[10px] font-semibold text-slate-700">
+      <div className="grid grid-cols-4 gap-1 text-center text-[10px] font-semibold text-slate-700">
         {navItems.map((item) => (
           <Link key={item.href} href={item.href} className="rounded-xl px-1 py-2 hover:bg-slate-100">
             {item.label}
@@ -55,12 +57,6 @@ export function DesktopNav() {
           {item.label}
         </Link>
       ))}
-      <Link href="/productos" className="rounded-xl bg-white px-4 py-2 text-sm font-semibold text-slate-800 shadow hover:bg-slate-50">
-        Productos
-      </Link>
-      <Link href="/reportes" className="rounded-xl bg-white px-4 py-2 text-sm font-semibold text-slate-800 shadow hover:bg-slate-50">
-        Reportes
-      </Link>
     </div>
   );
 }
@@ -69,7 +65,7 @@ export async function PageShell({ title, subtitle, children }: { title: string; 
   const { user } = await requireSession();
 
   return (
-    <main className="min-h-screen bg-slate-100 p-4 pb-24 text-slate-900 md:p-6 md:pb-6">
+    <main className="min-h-screen overflow-x-hidden bg-slate-100 p-4 pb-40 text-slate-900 md:p-6 md:pb-6">
       <AppHeader title={title} subtitle={subtitle} userEmail={user.email} />
       <section className="mx-auto max-w-6xl">
         <DesktopNav />

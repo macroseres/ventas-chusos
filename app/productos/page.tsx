@@ -3,6 +3,20 @@ import { PageShell, Card } from "../components/Shell";
 import { getSupabase } from "@/lib/supabase";
 import type { ProductoConInventario } from "@/lib/types";
 import { SubmitButton } from "@/app/components/SubmitButton";
+import type { ColorCatalogo } from "@/lib/types";
+
+async function crearColor(formData: FormData) {
+  "use server";
+
+  const nombre = String(formData.get("nombre") || "").trim();
+  const hex = String(formData.get("hex") || "").trim();
+  if (!nombre || !/^#[0-9a-f]{6}$/i.test(hex)) throw new Error("Indica un nombre y un color válido.");
+
+  const supabase = await getSupabase();
+  const { error } = await supabase.rpc("crear_color", { p_nombre: nombre, p_hex: hex });
+  if (error) throw new Error(error.message);
+  revalidatePath("/productos");
+}
 
 async function crearProducto(formData: FormData) {
   "use server";
@@ -51,6 +65,14 @@ export default async function ProductosPage() {
     .order("modelo");
   const productos = (data || []) as unknown as ProductoConInventario[];
 
+  const { data: coloresData, error: coloresError } = await supabase
+    .from("colores")
+    .select("id, nombre, hex, activo")
+    .eq("activo", true)
+    .order("nombre");
+  if (coloresError) throw new Error(coloresError.message);
+  const colores = coloresData as unknown as ColorCatalogo[];
+
   return (
     <PageShell title="Productos" subtitle="Registra modelo, talla, color y stock inicial.">
       <div className="grid gap-4">
@@ -71,7 +93,10 @@ export default async function ProductosPage() {
 
               <label className="grid gap-1">
                 <span className="text-sm font-semibold">Color</span>
-                <input name="color" defaultValue="Sin color" placeholder="Negro" className="min-h-12 rounded-xl border p-3 text-base" />
+                <select name="color" required defaultValue="" className="min-h-12 min-w-0 rounded-xl border p-3 text-base">
+                  <option value="" disabled>Seleccionar</option>
+                  {colores.map((color) => <option key={color.id} value={color.nombre}>{color.nombre}</option>)}
+                </select>
               </label>
             </div>
 
@@ -89,6 +114,28 @@ export default async function ProductosPage() {
 
             <SubmitButton label="Guardar producto" pendingLabel="Guardando..." className="min-h-12 rounded-xl bg-slate-950 px-4 py-3 font-bold text-white" />
           </form>
+        </Card>
+
+        <Card>
+          <form action={crearColor} className="grid gap-3 sm:grid-cols-[1fr_auto_auto] sm:items-end">
+            <label className="grid gap-1">
+              <span className="text-sm font-semibold">Nuevo color</span>
+              <input name="nombre" required placeholder="Ejemplo: Vino" className="min-h-12 min-w-0 rounded-xl border p-3 text-base" />
+            </label>
+            <label className="grid gap-1">
+              <span className="text-sm font-semibold">Muestra</span>
+              <input name="hex" type="color" defaultValue="#111111" className="h-12 w-full min-w-20 rounded-xl border bg-white p-1 sm:w-20" />
+            </label>
+            <SubmitButton label="Añadir color" pendingLabel="Añadiendo..." className="min-h-12 rounded-xl bg-slate-700 px-4 font-bold text-white" />
+          </form>
+          <div className="mt-4 flex flex-wrap gap-2" aria-label="Colores disponibles">
+            {colores.map((color) => (
+              <span key={color.id} className="inline-flex items-center gap-2 rounded-lg border bg-slate-50 px-2 py-1 text-sm">
+                <span className="h-4 w-4 rounded-full border" style={{ backgroundColor: color.hex }} />
+                {color.nombre}
+              </span>
+            ))}
+          </div>
         </Card>
 
         {error && <Card className="bg-red-50 text-red-700">{error.message}</Card>}

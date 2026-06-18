@@ -25,5 +25,22 @@ export default async function MovimientosPage() {
   const { data, error } = await supabase.from("productos").select(`id, modelo, talla, color, activo, inventario (cantidad, sedes (nombre))`).eq("activo", true).order("modelo");
   if (error) throw new Error(error.message);
   const productos = data as unknown as ProductoConInventario[];
-  return <PageShell title="Traslados" subtitle="Mueve stock desde Casa/Almacén Central hacia Tienda Mercado."><Card><form action={trasladar} className="grid gap-3"><select name="producto_id" required className="min-h-12 rounded-xl border p-3 text-base"><option value="">Seleccionar producto</option>{productos.map((producto)=><option key={producto.id} value={producto.id}>{producto.modelo} · Talla {producto.talla} · {producto.color} · Casa: {stockCasa(producto)}</option>)}</select><input name="cantidad" type="number" min="1" step="1" required placeholder="Cantidad" className="min-h-12 rounded-xl border p-3 text-base"/><SubmitButton label="Trasladar al mercado" pendingLabel="Trasladando..." className="min-h-12 rounded-xl bg-slate-950 font-bold text-white" /></form></Card></PageShell>;
+  return (
+    <PageShell title="Traslados" subtitle="Mueve stock desde Casa/Almacén Central hacia Tienda Mercado.">
+      <Card className="min-w-0 overflow-hidden">
+        <form action={trasladar} className="grid min-w-0 gap-3">
+          <select name="producto_id" required className="min-h-12 w-full min-w-0 max-w-full rounded-xl border p-3 text-base">
+            <option value="">Seleccionar producto</option>
+            {productos.map((producto) => (
+              <option key={producto.id} value={producto.id}>
+                {producto.modelo} · Talla {producto.talla} · {producto.color} · Casa: {stockCasa(producto)}
+              </option>
+            ))}
+          </select>
+          <input name="cantidad" type="number" min="1" step="1" required placeholder="Cantidad" className="min-h-12 w-full min-w-0 rounded-xl border p-3 text-base" />
+          <SubmitButton label="Trasladar al mercado" pendingLabel="Trasladando..." className="min-h-12 w-full rounded-xl bg-slate-950 font-bold text-white" />
+        </form>
+      </Card>
+    </PageShell>
+  );
 }

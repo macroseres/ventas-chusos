@@ -2,7 +2,7 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 ## Configuración de Supabase
 
-1. Ejecuta, en orden, las migraciones `202606180001_atomic_inventory_operations.sql` y `202606180002_google_access_hardening.sql` en el SQL Editor de Supabase.
+1. Ejecuta en orden las migraciones `202606180001_atomic_inventory_operations.sql`, `202606180002_google_access_hardening.sql` y `202606180003_sellers_and_colors.sql` en el SQL Editor de Supabase.
 2. Activa Google en Authentication > Providers y configura las credenciales OAuth de Google.
 3. En Google Cloud usa `https://TU_PROYECTO.supabase.co/auth/v1/callback` como URI autorizada del cliente OAuth.
 4. En Supabase añade `http://localhost:3000/auth/callback`, la URL LAN usada por el celular y la URL equivalente de producción a las URL de redirección permitidas.
@@ -20,6 +20,19 @@ on conflict (email) do update set activo = true;
 Para probar desde un celular en la misma red, abre la IP LAN del computador, por ejemplo `http://192.168.1.20:3000`, y registra `http://192.168.1.20:3000/auth/callback` en Supabase. En producción, `NEXT_PUBLIC_SITE_URL` debe ser la URL HTTPS pública; `ALLOWED_SITE_ORIGINS` puede contener orígenes adicionales separados por comas.
 
 La migración protege lecturas y operaciones de venta, compra, traslado y creación de productos para los correos autorizados, y ejecuta las mutaciones dentro de transacciones de PostgreSQL.
+
+## Vendedores de la familia
+
+Después de ejecutar `202606180003_sellers_and_colors.sql`, asocia cada Gmail con su vendedor:
+
+```sql
+update public.usuarios_autorizados u
+set vendedor_id = v.id
+from public.vendedores v
+where u.email = 'correo-del-papa@gmail.com' and v.nombre = 'Papá';
+```
+
+Repite la operación para `Mamá` y `Hermano`. La venta usará automáticamente el vendedor asociado al Gmail que inició sesión.
 
 ## Getting Started
 

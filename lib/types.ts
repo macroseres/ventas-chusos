@@ -1,5 +1,6 @@
 export type Sede = { id: string; nombre: string };
 export type Vendedor = { id: string; nombre: string };
+export type ColorCatalogo = { id: string; nombre: string; hex: string; activo: boolean };
 export type ProductoBase = {
   id: string;
   modelo: string;
