@@ -4,6 +4,7 @@ import { getSupabase } from "@/lib/supabase";
 import { getLimaDayBounds } from "@/lib/dates";
 import type { InventarioConProducto } from "@/lib/types";
 import { SubmitButton } from "@/app/components/SubmitButton";
+import { NumberStepper } from "@/app/components/NumberStepper";
 
 async function registrarVenta(formData: FormData) {
   "use server";
@@ -208,17 +209,10 @@ export default async function Home({
                   </div>
 
                   <div className="mt-3">
-                    <label className="grid gap-1">
+                    <div className="grid gap-1">
                       <span className="text-xs font-semibold">Cantidad</span>
-                      <input
-                        name="cantidad"
-                        type="number"
-                        min="1"
-                        max={item.cantidad}
-                        defaultValue="1"
-                        className="min-h-11 rounded-lg border p-2 text-base"
-                      />
-                    </label>
+                      <NumberStepper name="cantidad" min={1} max={Number(item.cantidad)} defaultValue={1} required />
+                    </div>
 
                   </div>
 

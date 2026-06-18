@@ -4,6 +4,7 @@ import { getSupabase } from "@/lib/supabase";
 import type { ProductoConInventario } from "@/lib/types";
 import { SubmitButton } from "@/app/components/SubmitButton";
 import type { ColorCatalogo } from "@/lib/types";
+import { NumberStepper } from "@/app/components/NumberStepper";
 
 async function crearColor(formData: FormData) {
   "use server";
@@ -101,15 +102,15 @@ export default async function ProductosPage() {
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2">
-              <label className="grid min-w-0 gap-1">
+              <div className="grid min-w-0 gap-1">
                 <span className="text-sm font-semibold">Stock inicial</span>
-                <input name="stock" type="number" min="0" defaultValue="0" className="min-h-12 min-w-0 rounded-xl border p-3 text-base" />
-              </label>
+                <NumberStepper name="stock" min={0} defaultValue={0} />
+              </div>
 
-              <label className="grid min-w-0 gap-1">
+              <div className="grid min-w-0 gap-1">
                 <span className="text-sm font-semibold">Stock mínimo</span>
-                <input name="stock_minimo" type="number" min="0" defaultValue="2" className="min-h-12 min-w-0 rounded-xl border p-3 text-base" />
-              </label>
+                <NumberStepper name="stock_minimo" min={0} defaultValue={2} />
+              </div>
             </div>
 
             <SubmitButton label="Guardar producto" pendingLabel="Guardando..." className="min-h-12 rounded-xl bg-slate-950 px-4 py-3 font-bold text-white" />

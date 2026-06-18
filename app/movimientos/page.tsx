@@ -3,6 +3,7 @@ import { getSupabase } from "@/lib/supabase";
 import { Card, PageShell } from "@/app/components/Shell";
 import type { ProductoConInventario } from "@/lib/types";
 import { SubmitButton } from "@/app/components/SubmitButton";
+import { NumberStepper } from "@/app/components/NumberStepper";
 
 async function trasladar(formData: FormData) {
   "use server";
@@ -37,7 +38,10 @@ export default async function MovimientosPage() {
               </option>
             ))}
           </select>
-          <input name="cantidad" type="number" min="1" step="1" required placeholder="Cantidad" className="min-h-12 w-full min-w-0 rounded-xl border p-3 text-base" />
+          <div className="grid gap-1">
+            <span className="text-sm font-semibold">Cantidad</span>
+            <NumberStepper name="cantidad" min={1} defaultValue={1} required />
+          </div>
           <SubmitButton label="Trasladar al mercado" pendingLabel="Trasladando..." className="min-h-12 w-full rounded-xl bg-slate-950 font-bold text-white" />
         </form>
       </Card>

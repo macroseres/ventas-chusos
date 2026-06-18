@@ -25,3 +25,13 @@ body {
   font-family: Arial, Helvetica, sans-serif;
   overflow-x: hidden;
 }
+
+.number-stepper-input {
+  appearance: textfield;
+}
+
+.number-stepper-input::-webkit-inner-spin-button,
+.number-stepper-input::-webkit-outer-spin-button {
+  margin: 0;
+  appearance: none;
+}

@@ -3,6 +3,7 @@ import { PageShell, Card } from "../components/Shell";
 import { getSupabase } from "@/lib/supabase";
 import type { Compra, ProductoBase } from "@/lib/types";
 import { SubmitButton } from "@/app/components/SubmitButton";
+import { NumberStepper } from "@/app/components/NumberStepper";
 
 async function registrarCompra(formData: FormData) {
   "use server";
@@ -71,10 +72,10 @@ export default async function ComprasPage() {
               </select>
             </label>
 
-            <label className="grid gap-1">
+            <div className="grid gap-1">
               <span className="text-sm font-semibold">Cantidad recibida</span>
-              <input name="cantidad" type="number" min="1" required className="min-h-12 rounded-xl border p-3 text-base" />
-            </label>
+              <NumberStepper name="cantidad" min={1} defaultValue={1} required />
+            </div>
 
             <label className="grid gap-1">
               <span className="text-sm font-semibold">Observación</span>
