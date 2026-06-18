@@ -3,10 +3,9 @@ import { PageShell, Card } from "./components/Shell";
 import { getSupabase } from "@/lib/supabase";
 import { getLimaDayBounds } from "@/lib/dates";
 import type { InventarioConProducto } from "@/lib/types";
-import { SubmitButton } from "@/app/components/SubmitButton";
-import { NumberStepper } from "@/app/components/NumberStepper";
+import { SaleForm, type SaleState } from "@/app/components/SaleForm";
 
-async function registrarVenta(formData: FormData) {
+async function registrarVenta(_state: SaleState, formData: FormData): Promise<SaleState> {
   "use server";
 
   const producto_id = String(formData.get("producto_id") || "");
@@ -14,22 +13,27 @@ async function registrarVenta(formData: FormData) {
   const cantidad = Number(formData.get("cantidad") || 0);
 
   if (!producto_id || !sede_id || !Number.isInteger(cantidad) || cantidad <= 0) {
-    throw new Error("Selecciona producto, sede y cantidad.");
+    return { error: "Selecciona producto, sede y cantidad." };
   }
 
-  const supabase = await getSupabase();
-  const { error } = await supabase.rpc("registrar_venta", {
-    p_producto_id: producto_id,
-    p_sede_id: sede_id,
-    p_vendedor_id: null,
-    p_cantidad: cantidad,
-  });
-  if (error) throw new Error(error.message);
+  try {
+    const supabase = await getSupabase();
+    const { error } = await supabase.rpc("registrar_venta", {
+      p_producto_id: producto_id,
+      p_sede_id: sede_id,
+      p_vendedor_id: null,
+      p_cantidad: cantidad,
+    });
+    if (error) return { error: error.message };
 
-  revalidatePath("/");
-  revalidatePath("/inventario");
-  revalidatePath("/alertas");
-  revalidatePath("/reportes");
+    revalidatePath("/");
+    revalidatePath("/inventario");
+    revalidatePath("/alertas");
+    revalidatePath("/reportes");
+    return { success: "Venta registrada correctamente." };
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : "No se pudo registrar la venta." };
+  }
 }
 
 export default async function Home({
@@ -195,34 +199,19 @@ export default async function Home({
           {productosFiltrados.length > 0 ? (
             <div className="grid gap-3">
               {productosFiltrados.map((item) => (
-                <form key={item.id} action={registrarVenta} className="rounded-xl border bg-slate-50 p-3">
-                  <input type="hidden" name="producto_id" value={item.productos.id} />
-                  <input type="hidden" name="sede_id" value={sedeActual?.id} />
-
-                  <div className="font-bold">{item.productos.modelo}</div>
-                  <div className="text-sm text-slate-600">
-                    Talla {item.productos.talla} · {item.productos.color}
-                  </div>
-
-                  <div className="mt-2 rounded-lg bg-white p-2 text-sm">
-                    Stock aquí: <strong>{item.cantidad}</strong>
-                  </div>
-
-                  <div className="mt-3">
-                    <div className="grid gap-1">
-                      <span className="text-xs font-semibold">Cantidad</span>
-                      <NumberStepper name="cantidad" min={1} max={Number(item.cantidad)} defaultValue={1} required />
-                    </div>
-
-                  </div>
-
-                  <SubmitButton
-                    label={vendedorActual ? "Vender" : "Asocia este Gmail para vender"}
-                    pendingLabel="Registrando..."
-                    disabled={!vendedorActual}
-                    className="mt-3 w-full rounded-xl bg-emerald-700 px-4 py-3 font-bold text-white"
-                  />
-                </form>
+                <SaleForm
+                  key={item.id}
+                  action={registrarVenta}
+                  sedeId={sedeActual.id}
+                  sellerReady={Boolean(vendedorActual)}
+                  producto={{
+                    id: item.productos.id,
+                    modelo: item.productos.modelo,
+                    talla: item.productos.talla,
+                    color: item.productos.color,
+                    cantidad: Number(item.cantidad),
+                  }}
+                />
               ))}
             </div>
           ) : (
